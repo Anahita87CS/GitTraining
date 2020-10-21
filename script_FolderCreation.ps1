@@ -41,23 +41,20 @@ $UsersArray | Select-Object DisplayName, UserPrincipalName | Export-Csv -Path "C
 # Create OneDrive for licensed users in O365 tenant (using array of UPN we created for licensed users)
 Write-Host "Created these OneDrive for licensed users : " -ForegroundColor Yellow
 foreach($email in $UsersArray){    
-    New-PnPPersonalSite -Email $email.UserPrincipalName
-    
-    
+    New-PnPPersonalSite -Email $email.UserPrincipalName   
 }
 
 
-# Get OneDrive URLs of licensed users in O365 tenant
+# Get OneDrive URLs of licensed users in O365 tenant and add them to an array
  $AllOneDrives = @()
 foreach ($row in $Users) {   
     $dstresult = Get-OneDriveUrl -Tenant $dsttenant -Email $row.UserPrincipalName -ProvisionIfRequired  -DoNotWaitForProvisioning 
         $AllOneDrives += $dstresult        
 }
 
-
+#Create a folder in each OneDrive (we want to migrate all files to this new folder)
 foreach($drive in $AllOneDrives){     
-         #Connect-PnPOnline -Url $drive -Credentials $destinationMigrationCredentials
-             #ensure folder in SharePoint online using powershell
+
                 $file = Add-PnPFolder -Name "Montreal Office" -Folder "Documents" -ErrorAction SilentlyContinue
       }
 
@@ -68,9 +65,8 @@ foreach($serverFileName in $files ){
     Write-Host ("Path of files on my pc: " + $serverFileName.fullName) -ForegroundColor Gray 
     Write-Host ("Name of the user folder on my pc: " + $serverFileName) -ForegroundColor Red
     foreach($OneDriveuser in $Users){
-       
  
-
+        # provisionning
         Get-OneDriveUrl -Tenant $dsttenant -Email $OneDriveuser.UserPrincipalName -ProvisionIfRequired -DoNotWaitForProvisioning
       
         $displayNameofOneDrive = Get-PnPUserProfileProperty -Account $OneDriveuser.UserPrincipalName -ErrorAction SilentlyContinue
@@ -89,9 +85,7 @@ foreach($serverFileName in $files ){
             Remove-SiteCollectionAdministrator -Site $dstSite
             
         }
-       
-       
-        
+    
     }
 
 }
