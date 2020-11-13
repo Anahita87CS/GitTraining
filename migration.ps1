@@ -1,54 +1,88 @@
-
 Import-Module Sharegate
-$choice = Read-Host "The migration is OneDrive to OneDrive (1) or Server to OneDrive(2)? "
-$csvFile = Read-Host "Enter the file path  "
+if(!(Get-Module SharePointPnPPowerShellOnline))  {
+    Install-Module  SharePointPnPPowerShellOnline -Force -AllowClobber
+}
+# Install Azure AD if it is not already installed
+if (!(Get-Module AzureAD)) {
+       Install-Module  AzureAD -Force -AllowClobber
+    }
 
-if($choice -eq "1"){
-    Write-Host "OneDrive - OneDrive migration"
 
-$table = Import-Csv $csvFile -Delimiter ","
 
-Set-Variable srcSite, dstSite, srcList, dstList
-foreach ($row in $table) {
- Clear-Variable srcSite
- Clear-Variable dstSite
- Clear-Variable srcList
- Clear-Variable dstList
- $Srcpassword =ConvertTo-SecureString $row.SourcePass -AsPlainText -Force
- $srcSite = Connect-Site -Url $row.SourceSite -Username $row.SourceUserName -Password $Srcpassword
- Add-SiteCollectionAdministrator -Site $srcSite
+$url="https://swordcanada-admin.sharepoint.com"
 
- $despas = ConvertTo-SecureString $row.DestinationPass -AsPlainText -Force
- $dstSite = Connect-Site -Url $row.DestinationSite -Username $row.DestinationUserName -Password $despas
- Add-SiteCollectionAdministrator -Site $dstSite
- $srcList = Get-List -Site $srcSite -Name "Documents"
- $dstList = Get-List -Site $dstSite -Name "Documents"
+$dstUsername = "anahita.atash-biz-yeganeh@swordcanada.onmicrosoft.com"
+$dstPassword = ConvertTo-SecureString "Annakjkj@75" -AsPlainText -Force
+[System.Management.Automation.PSCredential]$destinationMigrationCredentials = New-Object System.Management.Automation.PSCredential($dstUsername, $dstPassword)
+$dsttenant = Connect-Site -Url $url -Username $dstUsername -Password $dstPassword
+Connect-PnPOnline -url $url -Credentials $destinationMigrationCredentials
 
+Connect-AzureAD -Credential $destinationMigrationCredentials
+
+
+# Get the list of all licensed users in O365 Azure AD and create an array that holds the user's UPN
+$Users = Get-AzureADUser -All $True | Where-Object {$_.UserType -eq 'Member' -and $_.AssignedLicenses -ne $null}
+
+
+
+# to test if I got the correct UPN and display name of users
+$UsersArray | Select-Object DisplayName, UserPrincipalName | Export-Csv -Path "C:\Users\aatash-biz-yeganeh\oneDriveTest-ShareGate\liscenced_Users.csv" -NoTypeInformation
+
+$Users | Select-Object DisplayName, UserPrincipalName | Export-Csv -Path "C:\Users\aatash-biz-yeganeh\oneDriveTest-ShareGate\Users.csv" -NoTypeInformation
+
+# Create OneDrive for licensed users in O365 tenant who does not have a OneDrive setup for them(using array of UPN we created for licensed users)
+foreach($i in $Users){
+
+    $NameofOneDrive = Get-PnPUserProfileProperty -Account $i.UserPrincipalName  
+    $u =  Get-OneDriveUrl -Tenant $dsttenant -Email $i.UserPrincipalName
+    if($null -eq $u){
+      Write-Host ("creating OneDrive for "+ $NameofOneDrive.DisplayName +" who does not have a OneDrive ") -ForegroundColor Yellow
+      
+      New-PnPPersonalSite -Email $i.UserPrincipalName 
+      Start-Sleep -Seconds 10
+
+     
+    }
+ }
  
+# Arbitrary wait to avoid synchronization issues
+#Start-Sleep -Seconds 10
+$FolderName = "Data"
+foreach($email in $Users){ 
+           
+   $OneDriveSiteURL = Get-OneDriveUrl -Tenant $dsttenant -Email $email.UserPrincipalName -ProvisionIfRequired -DoNotWaitForProvisioning 
 
- Copy-Content -SourceList $srcList -DestinationList $dstList -DestinationFolder "Migrated Data"
-
- Remove-SiteCollectionAdministrator -Site $srcSite
- Remove-SiteCollectionAdministrator -Site $dstSite
+    Try {
+    #Connect to PnP Online
+    Connect-PnPOnline -Url $OneDriveSiteURL -Credentials $destinationMigrationCredentials
+      
+    #ensure folder in SharePoint online using powershell
+    #Resolve-PnPFolder -SiteRelativePath "Documents/$FolderName"
 }
+catch {
+    write-host "Error: $($_.Exception.Message)" -foregroundcolor yellow
+}
+   
 }
 
 
-if($choice -eq "2"){
-    Write-Host "Server - OneDrive migration"
-#$csvFile = "C:\Users\aatash-biz-yeganeh\oneDriveTest-ShareGate\url.csv" 
-$table = Import-Csv -Path $csvFile -Delimiter ","
-Set-Variable dstSite, dstList
-foreach ($row in $table) {
-    Clear-Variable dstSite
-    Clear-Variable dstList
-    $despas = ConvertTo-SecureString $row.DestinationPass -AsPlainText -Force
-    $dstSite = Connect-Site -Url $row.ONEDRIVEURL -Username $row.DestinationUserName -Password $despas
-    Add-SiteCollectionAdministrator -Site $dstSite
-    $dstList = Get-List -Name Documents -Site $dstSite
-    
-    Import-Document -SourceFolder $row.DIRECTORY -DestinationList $dstList -DestinationFolder "Migrated Data"
-    Remove-SiteCollectionAdministrator -Site $dstSite
-}
+
+
+
+
+Write-Host "List of all OneDrives: "
+
+foreach($email in $Users){ 
+           
+    $d = Get-OneDriveUrl -Tenant $dsttenant -Email $email.UserPrincipalName -ProvisionIfRequired -DoNotWaitForProvisioning 
+   try{
+
+    Connect-Site -Url  $d  -Username $dstUsername -Password $dstPassword
+   }
+   catch{
+    Write-Host "An error occured, retrying in 20 seconds ..." -ForegroundColor Yellow -ErrorAction Continue
+                Write-Host $_.exception.Message -ForegroundColor Yellow 
+                Start-Sleep -Seconds 10
+   }
 }
 

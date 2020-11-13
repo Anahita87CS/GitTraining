@@ -39,7 +39,7 @@ foreach ($user in $Users)
 $UsersArray | Select-Object DisplayName, UserPrincipalName | Export-Csv -Path "C:\Users\aatash-biz-yeganeh\oneDriveTest-ShareGate\OneDrive_Users.csv" -NoTypeInformation
 
 # Create OneDrive for licensed users in O365 tenant (using array of UPN we created for licensed users)
-Write-Host "Created these OneDrive for licensed users : " -ForegroundColor Yellow
+Write-Host "Created these OneDrive for licensed users  " -ForegroundColor Yellow
 foreach($email in $UsersArray){    
     New-PnPPersonalSite -Email $email.UserPrincipalName   
 }
@@ -48,17 +48,22 @@ foreach($email in $UsersArray){
 # Get OneDrive URLs of licensed users in O365 tenant and add them to an array
  $AllOneDrives = @()
 foreach ($row in $Users) {   
-    $dstresult = Get-OneDriveUrl -Tenant $dsttenant -Email $row.UserPrincipalName -ProvisionIfRequired  -DoNotWaitForProvisioning 
+    $dstresult = Get-OneDriveUrl -Tenant $dsttenant -Email $row.UserPrincipalName  -ProvisionIfRequired  -DoNotWaitForProvisioning 
         $AllOneDrives += $dstresult        
 }
 
 #Create a folder in each OneDrive (we want to migrate all files to this new folder)
 foreach($drive in $AllOneDrives){     
 
-                $file = Add-PnPFolder -Name "Montreal Office" -Folder "Documents" -ErrorAction SilentlyContinue
+                $file = Add-PnPFolder -Name "Data2222" -Folder "Documents" -ErrorAction SilentlyContinue
+            
       }
-
-      
+      foreach($email in $UsersArray){    
+       
+        Get-OneDriveUrl -Tenant $dsttenant -Email $email.UserPrincipalName -ProvisionIfRequired -DoNotWaitForProvisioning
+        #Write-Host $email.UserPrincipalName -ForegroundColor Yellow  
+    }
+    
 [array]$files=Get-ChildItem -path "C:\Users\aatash-biz-yeganeh\OneDrive_Migration_Folder"  
 
 foreach($serverFileName in $files ){
@@ -67,7 +72,7 @@ foreach($serverFileName in $files ){
     foreach($OneDriveuser in $Users){
  
         # provisionning
-        Get-OneDriveUrl -Tenant $dsttenant -Email $OneDriveuser.UserPrincipalName -ProvisionIfRequired -DoNotWaitForProvisioning
+        Get-OneDriveUrl -Tenant $dsttenant -Email $OneDriveuser.UserPrincipalName -ProvisionIfRequired  -DoNotWaitForProvisioning  
       
         $displayNameofOneDrive = Get-PnPUserProfileProperty -Account $OneDriveuser.UserPrincipalName -ErrorAction SilentlyContinue
       
@@ -81,7 +86,7 @@ foreach($serverFileName in $files ){
             Add-SiteCollectionAdministrator -Site $dstSite
 
             $dstList = Get-List -Name Documents -Site $dstSite
-            Import-Document -SourceFolder $serverFileName.fullName -DestinationList $dstList -DestinationFolder "Montreal Office"
+            #Import-Document -SourceFolder $serverFileName.fullName -DestinationList $dstList 
             Remove-SiteCollectionAdministrator -Site $dstSite
             
         }
