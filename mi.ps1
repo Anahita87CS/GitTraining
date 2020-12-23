@@ -133,8 +133,11 @@ foreach($serverFileName in $files ){
        if($displayNameofOneDrive.DisplayName -eq $serverFileName ){
             Write-Host ("URL.DisplayName: " + $displayNameofOneDrive.DisplayName + " =  serverFileName: " +$serverFileName) -ForegroundColor Green
            
-           #$mydrive =  Get-OneDriveUrl -Tenant $dsttenant -Email $OneDriveuser.UserPrincipalName -ProvisionIfRequired 
+           $OneDrive =  Get-OneDriveUrl -Tenant $dsttenant -Email $OneDriveuser.UserPrincipalName -ProvisionIfRequired 
           # Write-Host "my drive that I want to connect now :  $mydrive "
+          
+          Connect-PnPOnline -Url $OneDrive -Credentials $destinationMigrationCredentials
+           $DestinationFolder = Add-PnPFolder -Name "Migrated Data"  -Folder "Documents"
 
             $dstSite = Connect-Site -Url $displayNameofOneDrive.PersonalUrl  -Username $dstUsername -Password $dstPassword
            
