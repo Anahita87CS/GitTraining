@@ -43,25 +43,15 @@ if(!(Get-Module SharePointPnPPowerShellOnline))  {
     Install-Module  SharePointPnPPowerShellOnline -Force -AllowClobber
 }
 
-
- 
-   
-            
+             
 $dsttenant = Connect-Site -Url $TenantUrl -Username $dstUsername -Password $dstPassword
 Connect-PnPOnline -url $TenantUrl -Credentials $destinationMigrationCredentials
 Connect-SPOService -Credential $destinationMigrationCredentials -Url $TenantUrl
-
-
-
-
-
 Connect-MsolService -Credential $destinationMigrationCredentials
+
 # Get the list of all licensed users in O365 Azure AD and create an array that holds the user's UPN
 $Users = Get-MsolUser -All | Where-Object { $_.islicensed -eq $true }
 Write-Output "Users who have the license"
-#$Users | Select-Object DisplayName, UserPrincipalName
-
- 
 
 # Create OneDrive for licensed users in O365 tenant who does not have a OneDrive setup for them(using array of UPN we created for licensed users)
 
@@ -85,19 +75,13 @@ Write-Output "Users who have the license"
 Start-Sleep -Seconds 30
 
 
-
-
-
-
 Write-Host "Migration started" -ForegroundColor Yellow
 #Get files on server (here, My PC for test) and put the path/URL of each folder in an array - The name of folder should match the name of OneDrive in O365
 [array]$files=Get-ChildItem -path $ServerPath   
 
 
 foreach($serverFileName in $files ){
-    # Write-Host ("Path of files on my pc: " + $serverFileName.fullName) -ForegroundColor Gray 
-    # Write-Host ("Name of the user folder on my pc: " + $serverFileName) -ForegroundColor Red
-     
+
      foreach($OneDriveuser in $Users){
 
         
@@ -111,10 +95,7 @@ foreach($serverFileName in $files ){
             $DestinationFolder = Add-PnPFolder -Name "Migrated Data"  -Folder "Documents"
  
              $dstSite = Connect-Site -Url $OneDrive  -Username $dstUsername -Password $dstPassword
-            
-             #$dstSite = Connect-Site -Url  $mydrive  -Username $dstUsername -Password $dstPassword
-             
-       
+
              Write-Host ("Destination site that we successfully connected to :    "+$dstSite) -ForegroundColor Red -BackgroundColor Yellow
  
              if($dstSite){
