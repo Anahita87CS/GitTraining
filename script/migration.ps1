@@ -99,10 +99,23 @@ $users_from_database = Import-Csv 'database.csv' -Delimiter ","
 
 $Users |ForEach-Object {
     if($users_from_database.Filename -contains $_.DisplayName){
-        Write-Host $_.DisplayName
+        $name = $_.DisplayName
         Write-Host $_.UserPrincipalName
+        $source =$users_from_database | Where-Object {$_.Filename -eq $name}
+
+        Write-Host $source.SourceURL
         $OneDrive =  Get-OneDriveUrl -Tenant $dsttenant -Email $_.UserPrincipalName -ProvisionIfRequired 
         Write-Host $OneDrive 
+        Set-SPOUser -Site $OneDrive -LoginName $dstUsername -IsSiteCollectionAdmin $true
+           Connect-PnPOnline -Url $OneDrive -Credentials $destinationMigrationCredentials
+           #$DestinationFolder = Add-PnPFolder -Name "Migrated Data"  -Folder "Documents" 
+           $dstSite = Connect-Site -Url $OneDrive  -Username $dstUsername -Password $dstPassword           
+                if($dstSite){        
+                Add-SiteCollectionAdministrator -Site $dstSite
+                $dstList = Get-List -Name Documents -Site $dstSite
+                Import-Document -SourceFolder $source.SourceURL -DestinationList $dstList -DestinationFolder "Migrated Data"
+                Remove-SiteCollectionAdministrator -Site $dstSite
+            }
  
   
 }
