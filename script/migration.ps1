@@ -1,7 +1,7 @@
 
 <#
 ---------------------------------------------------------------------------------------------
-    Copyright © 2020  SWORD TECHNOLOGIES.  All rights reserved.
+    Copyright © 2021  SWORD TECHNOLOGIES.  All rights reserved.
 ---------------------------------------------------------------------------------------------
     PowerShell Source Code
 
@@ -51,7 +51,7 @@ Connect-MsolService -Credential $destinationMigrationCredentials
 
 # Get the list of all licensed users in O365 Azure AD and create an array that holds the user's UPN
 $Users = Get-MsolUser -All | Where-Object { $_.islicensed -eq $true }
-Write-Output "Users who have the license"
+
 
 # Create OneDrive for licensed users in O365 tenant who does not have a OneDrive setup for them(using array of UPN we created for licensed users)
 
@@ -69,52 +69,78 @@ Write-Output "Users who have the license"
         }      
      }
    
-
+ 
 
 # Arbitrary wait to avoid synchronization issues
 Start-Sleep -Seconds 30
 
 
-Write-Host "Migration started" -ForegroundColor Yellow
+#Write-Host "Migration started" -ForegroundColor Yellow
 #Get files on server (here, My PC for test) and put the path/URL of each folder in an array - The name of folder should match the name of OneDrive in O365
-[array]$files=Get-ChildItem -path $ServerPath   
+$files=@(Get-ChildItem -path $ServerPath)
 
+
+# my two arrays are $Users and $files
+
+$files |ForEach-Object {
+    #Write-Host $_
+    if($Users.DisplayName -contains $_){
+    #Write-Host "`$Users contains the ` [$_]"     
+}
+}
+
+
+
+
+# Import csv data
+$users_from_database = Import-Csv 'database.csv' -Delimiter "," 
+    
+
+
+$Users |ForEach-Object {
+    if($users_from_database.Filename -contains $_.DisplayName){
+        Write-Host $_.DisplayName
+        Write-Host $_.UserPrincipalName
+        $OneDrive =  Get-OneDriveUrl -Tenant $dsttenant -Email $_.UserPrincipalName -ProvisionIfRequired 
+        Write-Host $OneDrive 
+ 
+  
+}
+}
+
+
+
+
+
+<# 
 
 foreach($serverFileName in $files ){
 
-     foreach($OneDriveuser in $Users){
-
-        
+     foreach($OneDriveuser in $Users){        
         if($OneDriveuser.DisplayName -eq $serverFileName ){
-             Write-Host ("URL.DisplayName: " + $OneDriveuser.DisplayName + " =  serverFileName: " +$serverFileName) -ForegroundColor Green
-            
-           $OneDrive =  Get-OneDriveUrl -Tenant $dsttenant -Email $OneDriveuser.UserPrincipalName -ProvisionIfRequired 
-           # Write-Host "my drive that I want to connect now :  $mydrive "
+           Write-Host ("Start migration from server to OneDrive for business of user" + $OneDriveuser.DisplayName ) -ForegroundColor Green            
+           $OneDrive =  Get-OneDriveUrl -Tenant $dsttenant -Email $OneDriveuser.UserPrincipalName -ProvisionIfRequired            
            Set-SPOUser -Site $OneDrive -LoginName $dstUsername -IsSiteCollectionAdmin $true
            Connect-PnPOnline -Url $OneDrive -Credentials $destinationMigrationCredentials
-            $DestinationFolder = Add-PnPFolder -Name "Migrated Data"  -Folder "Documents"
- 
-             $dstSite = Connect-Site -Url $OneDrive  -Username $dstUsername -Password $dstPassword
-
-             Write-Host ("Destination site that we successfully connected to :    "+$dstSite) -ForegroundColor Red -BackgroundColor Yellow
- 
-             if($dstSite){
-         
-             Add-SiteCollectionAdministrator -Site $dstSite
- 
-             $dstList = Get-List -Name Documents -Site $dstSite
-             Import-Document -SourceFolder $serverFileName.fullName -DestinationList $dstList -DestinationFolder "Migrated Data"
-             Remove-SiteCollectionAdministrator -Site $dstSite
-         }
+           $DestinationFolder = Add-PnPFolder -Name "Migrated Data"  -Folder "Documents" 
+           $dstSite = Connect-Site -Url $OneDrive  -Username $dstUsername -Password $dstPassword           
+                if($dstSite){        
+                Add-SiteCollectionAdministrator -Site $dstSite
+                $dstList = Get-List -Name Documents -Site $dstSite
+                Import-Document -SourceFolder $serverFileName.fullName -DestinationList $dstList -DestinationFolder "Migrated Data"
+                Remove-SiteCollectionAdministrator -Site $dstSite
+            }
      }
                 
      }
  
  }
 
-
+#>
 
 
 
 
 # Also, give site collection admin before connect-site  OR connect-PnPOnline to onedrive -> create folder inside onedrive -> connect-site and the rest 
+
+#https://adamtheautomator.com/compare-powershell-arrays/#:~:text=You%20can%20also%20use%20PowerShell,are%20not%20in%20either%20array.&text=You%20can%20see%20below%20that,compare%20both%20arrays%20at%20once.
